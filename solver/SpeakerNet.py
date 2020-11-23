@@ -13,16 +13,16 @@ class SpeakerNet(nn.Module):
     def __init__(self, model, optimizer, scheduler, trainfunc, **kwargs):
         super(SpeakerNet, self).__init__()
 
-        SpeakerNetModel = importlib.import_module('models.'+model).__getattribute__('MainModel')
+        SpeakerNetModel = importlib.import_module('models.' + model).__getattribute__('MainModel')
         self.__S__ = SpeakerNetModel(**kwargs).cuda()
 
-        LossFunction = importlib.import_module('loss.'+trainfunc).__getattribute__('LossFunction')
+        LossFunction = importlib.import_module('loss.' + trainfunc).__getattribute__('LossFunction')
         self.__L__ = LossFunction(**kwargs).cuda()
 
-        Optimizer = importlib.import_module('optimizer.'+optimizer).__getattribute__('Optimizer')
+        Optimizer = importlib.import_module('optimizer.' + optimizer).__getattribute__('Optimizer')
         self.__optimizer__ = Optimizer(self.parameters(), **kwargs)
 
-        Scheduler = importlib.import_module('scheduler.'+scheduler).__getattribute__('Scheduler')
+        Scheduler = importlib.import_module('scheduler.' + scheduler).__getattribute__('Scheduler')
         self.__scheduler__, self.lr_step = Scheduler(self.__optimizer__, **kwargs)
 
         assert self.lr_step in ['epoch', 'iteration']
@@ -33,56 +33,51 @@ class SpeakerNet(nn.Module):
 
     def train_network(self, loader):
         self.train()
-
         stepsize = loader.batch_size
-
         counter = 0
-        index   = 0
-        loss    = 0
-        top1    = 0     # EER or accuracy
+        index = 0
+        loss = 0
+        top1 = 0     # EER or accuracy
 
-        tstart = time.time()
+        start_time = time.time()
         
         for data, data_label in loader:
-
-            data = data.transpose(0,1)
-
+            data = data.transpose(0, 1)
             self.zero_grad()
 
             feat = []
             for inp in data:
-                outp      = self.__S__.forward(inp.cuda())
+                outp = self.__S__.forward(inp.cuda())
                 feat.append(outp)
 
-            feat = torch.stack(feat,dim=1).squeeze()
+            feat = torch.stack(feat, dim=1).squeeze()
+            label = torch.LongTensor(data_label).cuda()
+            nloss, prec1 = self.__L__.forward(feat, label)
 
-            label   = torch.LongTensor(data_label).cuda()
-
-            nloss, prec1 = self.__L__.forward(feat,label)
-
-            loss    += nloss.detach().cpu()
-            top1    += prec1
+            loss += nloss.detach().cpu()
+            top1 += prec1
             counter += 1
-            index   += stepsize
+            index += stepsize
 
             nloss.backward()
             self.__optimizer__.step()
 
-            telapsed = time.time() - tstart
-            tstart = time.time()
+            elapsed_time = time.time() - start_time
+            start_time = time.time()
 
             sys.stdout.write("\rProcessing (%d) "%(index))
-            sys.stdout.write("Loss %f TEER/TAcc %2.3f%% - %.2f Hz "%(loss/counter, top1/counter, stepsize/telapsed))
+            sys.stdout.write("Loss %f TEER/TAcc %2.3f%% - %.2f Hz " % (loss / counter, top1 / counter, stepsize / elapsed_time))
             sys.stdout.flush()
 
-            if self.lr_step == 'iteration': self.__scheduler__.step()
+            if self.lr_step == 'iteration':
+                self.__scheduler__.step()
 
-        if self.lr_step == 'epoch': self.__scheduler__.step()
+        if self.lr_step == 'epoch':
+            self.__scheduler__.step()
 
         sys.stdout.write("\n")
         
         return (loss/counter, top1/counter)
-
 
     ## ===== ===== ===== ===== ===== ===== ===== =====
     ## Evaluate from list

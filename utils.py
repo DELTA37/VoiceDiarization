@@ -10,7 +10,7 @@ from scipy.io import wavfile
 
 
 def loadWAV(filename,
-            max_frames,
+            max_frames=200,
             evalmode=True,
             num_eval=10):
     # Maximum audio length
@@ -37,3 +37,16 @@ def loadWAV(filename,
 
     feat = np.stack(feats, axis=0).astype(np.float)
     return feat
+
+
+def iterWAVFrames(filename,
+                  max_frames=200,
+                  intersection_percent=0.2):
+    max_audio = max_frames * 160 + 240
+    sample_rate, audio = wavfile.read(filename)
+    audiosize = audio.shape[0]
+
+    if audiosize <= max_audio:
+        shortage = max_audio - audiosize + 1
+        audio = np.pad(audio, (0, shortage), 'wrap')
+        audiosize = audio.shape[0]

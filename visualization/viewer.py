@@ -191,7 +191,6 @@ class PlotDiar(object):
                 self.ax.plot([x, x], [0, self.maxy], linestyle=':',
                              color='#AAAAAA')
 
-
     def _dec_right(self, min, max):
         """
         Move right

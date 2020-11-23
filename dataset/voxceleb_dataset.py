@@ -112,7 +112,9 @@ class VoxCelebDataset(Dataset):
             self.data_list.append(filename)
 
     def __getitem__(self, indices):
+        squeeze = False
         if isinstance(indices, int):
+            squeeze = True
             indices = [indices]
 
         feat = []
@@ -133,6 +135,8 @@ class VoxCelebDataset(Dataset):
             feat.append(audio)
 
         feat = np.concatenate(feat, axis=0)
+        if squeeze:
+            feat = feat[0]
         return torch.FloatTensor(feat), self.data_label[index]
 
     def __len__(self):
